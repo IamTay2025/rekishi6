@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>検閲回避心理戦ゲーム</title>
+    <!-- Tailwind CSS CDNをロード -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* カスタムCSS：昭和レトロな雰囲気を演出 */
+        @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho&display=swap');
+        
+        :root {
+            --color-paper: #f7f3e8;
+            --color-wood: #a0522d;
+            --color-ink: #333333;
+            --color-danger: #b91c1c;
+            --color-supreme: #92400e; /* 最高権力者用の色 */
+        }
+
+        body {
+            font-family: 'Shippori Mincho', 'Inter', sans-serif;
+            background-color: #555;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        #app-container {
+            background-color: #444;
+            max-width: 500px;
+            width: 100%;
+            border: 10px solid var(--color-wood);
+            border-radius: 12px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #score-board {
+            background-color: var(--color-wood);
+            color: var(--color-paper);
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+            border-bottom: 3px solid #6b4423;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        #game-area {
+            background-color: #333;
+            padding: 1rem;
+        }
+        
+        #message-box {
+            background-color: var(--color-paper);
+            color: var(--color-ink);
+            min-height: 180px;
+            padding: 1rem;
+            border: 4px solid var(--color-wood);
+            border-radius: 6px;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.2);
+            margin-bottom: 1rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            transition: background-color 0.3s;
+        }
+        
+        .char-box {
+            background-color: #222;
+            color: var(--color-paper);
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            border-left: 5px solid #e59146;
+        }
+        
+        /* 警察官系（引っ掛け含む）の会話ボックスを赤く強調 */
+        .police-dialogue-box {
+            background-color: #4b0e0e; 
+            border-left: 5px solid var(--color-danger);
+        }
+        
+        /* 東條英機専用の会話ボックスを金色で強調 */
+        .supreme-dialogue-box {
+            background-color: var(--color-supreme); 
+            border-left: 5px solid #facc15;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 5px #facc15, 0 0 10px #facc15; }
+            50% { box-shadow: 0 0 10px #facc15, 0 0 20px #facc15; }
+            100% { box-shadow: 0 0 5px #facc15, 0 0 10px #facc15; }
+        }
+
+        .button-style {
+            font-family: 'Shippori Mincho', sans-serif;
+            background-color: #e59146;
+            color: var(--color-ink);
+            font-weight: bold;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            border: 2px solid #b76c31;
+            box-shadow: 0 4px 0 #b76c31;
+            transition: all 0.1s ease;
+            width: 100%;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+        .button-style:active {
+            box-shadow: 0 0 0 #b76c31;
+            transform: translateY(4px);
+        }
+
+        .button-danger {
+            background-color: var(--color-danger);
+            color: white;
+            box-shadow: 0 4px 0 #9f1616;
+            border-color: #9f1616;
+        }
+
+        .button-danger:active {
+            box-shadow: 0 0 0 #9f1616;
+        }
+        
+        .button-neutral {
+             background-color: #9ca3af;
+             box-shadow: 0 4px 0 #6b7280;
+             border-color: #6b7280;
+        }
+        
+        .button-neutral:active {
+            box-shadow: 0 0 0 #6b7280;
+        }
+        
+        .game-over {
+            background-color: #fcebeb;
+        }
+        
+        /* アイコン */
+        .icon {
+            display: inline-block;
+            font-size: 1.2em;
+            margin-right: 8px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <div id="app-container" class="shadow-lg">
+        <!-- スコアボード -->
+        <div id="score-board">
+            <div class="flex items-center space-x-2">
+                <span class="text-yellow-300">貢献ポイント:</span>
+                <span id="score" class="text-xl font-extrabold">0</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-red-400">ラウンド:</span>
+                <span id="round-count" class="text-xl">0 / 10</span>
+            </div>
+        </div>
+        
+        <div id="game-area">
+            <!-- 出会った人物の会話 -->
+            <div id="character-info" class="char-box">
+                <p class="font-bold text-lg mb-1" id="char-title">暗がりから現れた人物...</p>
+                <p id="char-dialogue" class="text-sm">...</p>
+            </div>
+            
+            <!-- メッセージ表示エリア (結果や解説) -->
+            <div id="message-box" class="text-base">
+                ゲーム開始...
+            </div>
+
+            <!-- ボタンエリア -->
+            <div id="choice-buttons" class="flex flex-col space-y-2">
+                <!-- 選択肢がここに入る -->
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 設定とデータ ---
+        const MESSAGE_BOX = document.getElementById('message-box');
+        const SCORE_ELEM = document.getElementById('score');
+        const ROUND_ELEM = document.getElementById('round-count');
+        const BUTTONS_CONTAINER = document.getElementById('choice-buttons');
+        const CHAR_INFO = document.getElementById('character-info');
+        const CHAR_DIALOGUE = document.getElementById('char-dialogue');
+        const CHAR_TITLE = document.getElementById('char-title');
+        
+        const MAX_ROUNDS = 10;
+        // 🚨 東條英機の出現確率 15% -> 5% に変更
+        const TOJO_PROBABILITY = 0.05; 
+
+        // 🚨 変更後の作品データ
+        const ITEMS = {
+            FORBIDDEN: [
+                { name: '『蟹工船』', type: 'FORBIDDEN', icon: '🚢' }, // プロレタリア文学/社会主義的示唆
+                { name: '『細雪』', type: 'FORBIDDEN', icon: '👘' }, // 戦時下に不適切な華美な描写
+                { name: '『生きている兵隊』', type: 'FORBIDDEN', icon: '💀' }, // 皇軍批判/反戦
+                { name: '『非軍国主義論』', type: 'FORBIDDEN', icon: '🚫' }  // 軍国主義批判/体制批判
+            ],
+            SAFE: [
+                { name: '『麦と兵隊』', type: 'SAFE', icon: '🎖️' }, // 戦争文学
+                { name: '『アッツ島玉砕の図』', type: 'SAFE', icon: '🖼️' }, // 戦争画
+                { name: '『海ゆかば』', type: 'SAFE', icon: '🎶' }, // 軍歌
+                { name: '『桃太郎　海の神兵』', type: 'SAFE', icon: '🍑' }, // 国策アニメ
+                { name: '『五人の斥候兵』', type: 'SAFE', icon: '🎥' } // 国策映画
+            ]
+        };
+        
+        // 全てのアイテムを一つのリストに統合
+        const ALL_ITEMS = [...ITEMS.FORBIDDEN, ...ITEMS.SAFE];
+
+        // 人物データとルール (変更なし)
+        const CHARACTERS_DATA = {
+            // 口調のバリエーション (警官の「警官らしさ」を排除し、一般人と区別しにくくする)
+            dialogues: {
+                // 警官・優しそうな警官 (曖昧で、質問の意図が分かりにくい口調に変更)
+                POLICE: [
+                    '「お前、こんな時間に何を運んでいる。怪しい動きをするな。所属と目的を申告しろ！」', 
+                    '「すみません、ちょっとお時間を。不審物がないか、簡単に見せていただけますか？」', 
+                    '「お前の顔、見慣れないな。どこから来て、どこへ行く。正直に答えればすぐに解放する。」',
+                    '「夜間の外出は許可されているのか？荷物は重そうだが、何を持っているんだ。」',
+                    '「この先の道は暗いぞ。荷物が重そうだが、手伝おうか？親切心だよ。」', 
+                    '「あの、この辺で探しているものがあるんだが、何か変わったものを見なかったか？」', 
+                    '「こんな寒い夜に大変だね。君の持っているものが、国のためになるものだと信じているよ。」', 
+                    '「この場所は少し危険だ。君が持っているものを見せてくれれば、私が代わりに運んであげよう。」', 
+                    '「おい、そこの君！道を尋ねたいんだが、急ぎの用か？」', 
+                    '「ちょっとご協力願いたい。怪しい者がいると通報があった。君ではないといいが。」'
+                ],
+                // 依頼人 (切迫しているが、依頼を匂わせない口調)
+                CLIENT: [
+                    '「ようやく会えた。随分と遅いじゃないか。これで全てが終わるんだ。早く。」',
+                    '「ええ、連絡した者よ。この間の話。周囲に気をつけて。ここじゃ長話はできない。」',
+                    '「本当に来てくれるなんて。これさえあれば、あの人たちを救える。感謝する。」',
+                    '「...（周囲を警戒しながら、こちらに一瞥をくれる）。急いでいるんだろうな？」',
+                    '「寒いわね...。手がかじかんでしまう。これを待っていたのよ。」',
+                    '「道に迷ったのかと思った。時間が無いの。早く私の手から離してくれ。」',
+                    '「...（咳払いをする）。大事な品、忘れずに持ってきてくれたか？」',
+                    '「お前には危険な役目を頼んでしまった。だが、どうか頼む。これを届けさせてくれ。」',
+                    '「夜は目が効かないからな。頼む、間違いなく届けてくれ。約束通りに。」',
+                    '「私は口が堅い。お前もそうだろう。品を交換し、速やかに立ち去れ。」'
+                ],
+                // 一般人 (中立的/不機嫌/無関心な口調)
+                GENERAL: [
+                    '「あら、どちら様？こんな時間に。近所の人かしら？私、今急いでいるの。」',
+                    '「ちょっと、道を塞いでんじゃないよ！何だか不気味な顔をしてるね、さっさとどけ！」',
+                    '「こんな夜更けに、何をこそこそと。まあ、私には関係ないけどね。」',
+                    '「...（顔を見ず、足早に立ち去ろうとしている）...」',
+                    '「おや、どちらさんかね？こんな夜更けに。何か私に用でもあるのかね？」',
+                    '「道の真ん中で突っ立って...邪魔だよ。まったく、迷惑な話だ。」',
+                    '「あなた、そんな大きな荷物を持って。大変ね。でも、私には用はないわ。」',
+                    '「うわっ、暗くてびっくりした。人違いなら早くどいてくれる？」',
+                    '「あの、すいません。何かお探しですか？私はただ帰るだけなのですが...。」',
+                    '「近頃、物騒だからね。早く家に帰るのが一番だよ。」'
+                ],
+                // 東條英機は固定
+                TOJO: [
+                    '「...私が直々に検閲する。この世に私を欺けるものはない。」'
+                ]
+            },
+            
+            // ルールと出現確率
+            definitions: [
+                // 1. 警官 (通常) - 威圧的な口調 (20%)
+                { type: 'police_normal', prob: 0.2, name: '検閲官 (警官)', dialogueType: 'POLICE', isPolice: true,
+                    rules: {
+                        FORBIDDEN: { result: 'gameover', text: '「発禁書籍！貴様、現行犯逮捕だ！処刑！」' },
+                        SAFE: { result: 'points', value: 3, text: '「ふむ、立派な戦意高揚作品だ。ご苦労、大儀である。」' },
+                        HIDE: { result: 'points', value: -1, text: '「態度が怪しいな。何も持っていないようだが、減点だ。」' }
+                    }
+                },
+                // 2. 警官 (引っ掛け) - 優しそうな口調で探る (10%)
+                { type: 'police_gentle', prob: 0.1, name: '巡回警官 (引っ掛け)', dialogueType: 'POLICE', isPolice: true,
+                    rules: {
+                        FORBIDDEN: { result: 'gameover', text: '「（ニヤリ）騙されないぞ、発禁書籍！憲兵だ！処刑！」' },
+                        SAFE: { result: 'points', value: 3, text: '「愛国心、大変結構。これからも尽力してくれたまえ。」' },
+                        HIDE: { result: 'points', value: -1, text: '「せっかく声をかけたのに、無愛想だね。不審だと報告しておく。」' }
+                    }
+                },
+                // 3. 依頼人 (40%)
+                { type: 'client', prob: 0.4, name: '依頼人', dialogueType: 'CLIENT', isPolice: false,
+                    rules: {
+                        FORBIDDEN: { result: 'points', value: 5, text: '「...感謝する。これで私たちの計画は進む。」' },
+                        SAFE: { result: 'points', value: -1, text: '「...何だこの戦意高揚のゴミは。私を誰だと思っている！？通報するぞ！」' },
+                        HIDE: { result: 'gameover', text: '「裏切ったな！約束を破るとは！通報だ！処刑！」' }
+                    }
+                },
+                // 4. 一般人 (20%) - リスク小
+                { type: 'general', prob: 0.2, name: '一般人', dialogueType: 'GENERAL', isPolice: false,
+                    rules: {
+                        FORBIDDEN: { result: 'points', value: -1, text: '「その本は...！？変なものを渡しつけないでよ！私は知らない！」' },
+                        SAFE: { result: 'points', value: 1, text: '「立派な画報ね。ありがとう、安心したわ。」' },
+                        HIDE: { result: 'points', value: 0, text: '「チッ...道を塞ぐな。ちょっとイライラするわね。」' }
+                    }
+                },
+                 // 5. 偽装警官 (10%) - 一般人の口調で接してくる警官
+                { type: 'police_disguised', prob: 0.1, name: '一般人風の人物', dialogueType: 'GENERAL', isPolice: true,
+                    rules: {
+                        FORBIDDEN: { result: 'gameover', text: '「何を隠そう。発禁書籍！憲兵だ！処刑！」' },
+                        SAFE: { result: 'points', value: 3, text: '「（笑い）...見事な愛国心だ。褒めておこう。」' },
+                        HIDE: { result: 'points', value: -1, text: '「（ため息）...不審な行動。憲兵隊に報告はしておくぞ。」' }
+                    }
+                },
+                // 6. 東條英機 (5%) - 特殊な強制ゲームオーバー
+                { type: 'tojo', prob: TOJO_PROBABILITY, name: '東條英機', dialogueType: 'TOJO', isPolice: true,
+                    rules: {
+                        FORBIDDEN: { result: 'gameover_force', text: '「問答無用！国賊めが！」' },
+                        SAFE: { result: 'gameover_force', text: '「問答無用！国賊めが！」' },
+                        HIDE: { result: 'gameover_force', text: '「問答無用！国賊めが！」' }
+                    }
+                }
+            ]
+        };
+
+        let gameState = {
+            score: 0,
+            currentRound: 0,
+            currentPerson: null,
+            gameActive: false,
+            usedDialogues: {
+                'POLICE': new Set(),
+                'CLIENT': new Set(),
+                'GENERAL': new Set(),
+            },
+            roundSequence: [], 
+            roundItems: [] // このラウンドで提示されるアイテムを格納
+        };
+
+        // --- ユーティリティ ---
+        function getRandomItem(type) {
+            const list = ITEMS[type];
+            return list[Math.floor(Math.random() * list.length)];
+        }
+        
+        // 使用されていないセリフをランダムで取得
+        function getUniqueDialogue(dialogueType) {
+            // 東條英機の場合は固定セリフを返す
+            if (dialogueType === 'TOJO') {
+                return CHARACTERS_DATA.dialogues.TOJO[0];
+            }
+
+            const allDialogues = CHARACTERS_DATA.dialogues[dialogueType.toUpperCase()];
+            const unusedDialogues = allDialogues.filter(d => !gameState.usedDialogues[dialogueType.toUpperCase()].has(d));
+            
+            if (unusedDialogues.length === 0) {
+                // セリフが枯渇したら、最も古いセリフをリセットして再利用
+                gameState.usedDialogues[dialogueType.toUpperCase()].clear();
+                return getUniqueDialogue(dialogueType); // 再帰呼び出し
+            }
+
+            const dialogue = unusedDialogues[Math.floor(Math.random() * unusedDialogues.length)];
+            gameState.usedDialogues[dialogueType.toUpperCase()].add(dialogue);
+            return dialogue;
+        }
+
+        // 10ラウンド分の人物を確率に基づいて事前に決定する
+        function generateRoundSequence() {
+            gameState.roundSequence = [];
+            for (let i = 0; i < MAX_ROUNDS; i++) {
+                // 最初に東條英機の抽選を行う (5%の独立抽選)
+                if (Math.random() < TOJO_PROBABILITY) {
+                    gameState.roundSequence.push(CHARACTERS_DATA.definitions.find(d => d.type === 'tojo'));
+                    continue; // 他の人物の抽選は行わない
+                }
+                
+                // 通常の人物の抽選
+                const normalDefinitions = CHARACTERS_DATA.definitions.filter(d => d.type !== 'tojo');
+                const totalProb = normalDefinitions.reduce((sum, d) => sum + d.prob, 0);
+                const rand = Math.random() * totalProb;
+                
+                let cumulativeProb = 0;
+                let personDefinition = null;
+
+                for (const def of normalDefinitions) {
+                    cumulativeProb += def.prob;
+                    if (rand < cumulativeProb) {
+                        personDefinition = def;
+                        break;
+                    }
+                }
+                if (!personDefinition) personDefinition = normalDefinitions[0]; // safety fallback
+                gameState.roundSequence.push(personDefinition);
+            }
+        }
+
+        // --- ゲーム開始/リセット ---
+        function startGame() {
+            gameState.score = 0;
+            gameState.currentRound = 0;
+            gameState.gameActive = true;
+            gameState.usedDialogues = { 'POLICE': new Set(), 'CLIENT': new Set(), 'GENERAL': new Set() };
+            generateRoundSequence(); // 新しいラウンドシーケンスを生成
+
+            MESSAGE_BOX.classList.remove('game-over');
+            CHAR_INFO.classList.remove('police-dialogue-box', 'supreme-dialogue-box');
+            
+            updateUI();
+            
+            showMessage(`
+【極秘任務開始】
+貴方は、自由な思想を運ぶ地下の配達人。目の前の人物が誰かを見抜け！
+<span class="font-bold text-red-500">※渡す作品名のみを確認できます。</span>
+セリフに隠された真意と作品名から、<span class="font-bold">「発禁品」か「正しい品」かを推測</span>し、行動を選択してください。
+東條英機出現確率: 5%
+            
+全${MAX_ROUNDS}ラウンドです。
+            `);
+            CHAR_TITLE.textContent = '暗がりから現れた人物...';
+            CHAR_DIALOGUE.textContent = '任務開始を待て。';
+            setButtons([
+                { text: '出発する', action: nextStep }
+            ]);
+        }
+
+        // --- UI更新 ---
+        function updateUI() {
+            SCORE_ELEM.textContent = gameState.score;
+            ROUND_ELEM.textContent = `${gameState.currentRound} / ${MAX_ROUNDS}`;
+        }
+
+        function showMessage(text) {
+            MESSAGE_BOX.innerHTML = text;
+        }
+
+        function setButtons(buttons) {
+            BUTTONS_CONTAINER.innerHTML = '';
+            buttons.forEach(btn => {
+                const button = document.createElement('button');
+                button.className = `button-style ${btn.class || ''}`;
+                // アイコンとテキストを表示。アイテムのタイプ(FORBIDDEN/SAFE)は表示しない
+                button.innerHTML = `<span class="icon">${btn.icon || ''}</span>${btn.text}`; 
+                button.onclick = btn.action;
+                BUTTONS_CONTAINER.appendChild(button);
+            });
+        }
+        
+        function showCharacter(person) {
+            // ユニークなセリフを取得し、使用済みとして記録
+            const dialogueText = getUniqueDialogue(person.dialogueType);
+            CHAR_DIALOGUE.textContent = dialogueText;
+            
+            CHAR_TITLE.textContent = (person.type === 'tojo') ? '【！！非常警戒！！】' : '暗がりから現れた人物...';
+
+            // ボックスのスタイリング
+            CHAR_INFO.classList.remove('police-dialogue-box', 'supreme-dialogue-box');
+            if (person.type === 'tojo') {
+                CHAR_INFO.classList.add('supreme-dialogue-box');
+            } else if (person.isPolice) {
+                CHAR_INFO.classList.add('police-dialogue-box');
+            }
+        }
+
+        // --- ゲーム進行 ---
+        
+        // 次のステップ（人物との遭遇）
+        function nextStep() {
+            if (gameState.currentRound >= MAX_ROUNDS) {
+                endGame();
+                return;
+            }
+            
+            gameState.currentRound++;
+            
+            // 事前決定された人物を取得
+            const personDefinition = gameState.roundSequence[gameState.currentRound - 1];
+            gameState.currentPerson = personDefinition;
+
+            // 東條英機だった場合は強制ゲームオーバーの処理へ
+            if (personDefinition.type === 'tojo') {
+                gameOverForce(personDefinition.name, getUniqueDialogue(personDefinition.dialogueType));
+                return;
+            }
+
+            // 通常の人物のセリフとボタンを表示
+            showCharacter(personDefinition);
+
+            showMessage(`
+【第${gameState.currentRound}ラウンド】
+夜の暗がりから、目の前に誰かが現れた。
+相手の「真意」を読み取れ。
+            `);
+
+            // 選択肢の生成
+            // プレイヤーに渡すアイテムはランダムに選ばれるが、それが何タイプかは渡さない
+            const item1 = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+            let item2;
+            do {
+                item2 = ALL_ITEMS[Math.floor(Math.random() * ALL_ITEMS.length)];
+            } while (item1.name === item2.name); // 同じ作品名にならないようにする
+
+            // このラウンドで使用するアイテムを記録（結果判定のため）
+            gameState.roundItems = [item1, item2];
+
+
+            const actionButtons = [
+                // 1. アイテム1を渡す
+                {
+                    text: `${item1.icon} ${item1.name}を渡す`,
+                    action: () => handleAction(item1.type), // プレイヤーには見えないが、ロジックはタイプで判定
+                    icon: ''
+                },
+                // 2. アイテム2を渡す
+                {
+                    text: `${item2.icon} ${item2.name}を渡す`,
+                    action: () => handleAction(item2.type), // プレイヤーには見えないが、ロジックはタイプで判定
+                    icon: ''
+                },
+                // 3. 何も渡さない
+                {
+                    text: '🤫 何も渡さず、やり過ごす',
+                    action: () => handleAction('HIDE'),
+                    icon: '',
+                    class: 'button-neutral'
+                }
+            ];
+            // アイコンをボタンテキストに統合したため、iconプロパティは空にする
+            actionButtons[0].icon = actionButtons[1].icon = actionButtons[2].icon = ''; 
+
+            setButtons(actionButtons);
+            updateUI();
+        }
+
+        // プレイヤーの行動処理
+        function handleAction(choiceType) {
+            const person = gameState.currentPerson;
+            // 渡すアイテムのタイプ（FORBIDDEN, SAFE, HIDE）に基づいてルールを適用
+            const result = person.rules[choiceType];
+            
+            // 通常のゲームオーバー判定
+            if (result.result === 'gameover') {
+                gameOver(person.name, result.text);
+                return;
+            }
+
+            // ポイント変動
+            const pointChange = result.value;
+            gameState.score += pointChange;
+            
+            // メッセージ生成
+            let messageText = '';
+            let icon = '';
+            let color = 'text-white';
+            
+            // プレイヤーに渡したアイテムのタイプを伝える (解説として)
+            let itemTypeDescription = '';
+            if (choiceType === 'FORBIDDEN') {
+                itemTypeDescription = '（渡した作品は【発禁書籍】だった）';
+            } else if (choiceType === 'SAFE') {
+                itemTypeDescription = '（渡した作品は【戦意高揚作品】だった）';
+            } else {
+                itemTypeDescription = ''; // HIDEの場合
+            }
+
+
+            if (pointChange > 0) {
+                icon = '⬆️';
+                color = 'text-green-400';
+            } else if (pointChange < 0) {
+                icon = '⬇️';
+                color = 'text-red-400';
+            } else {
+                icon = '〰️';
+            }
+            
+            messageText = `
+            --- 結果 ---
+            相手の正体は【${person.name}】だった！ ${itemTypeDescription}
+            
+            ${result.text}
+            
+            <span class="${color} font-bold">${icon} 貢献ポイント: ${pointChange > 0 ? '+' : ''}${pointChange}</span>
+            
+            >> ${gameState.currentRound < MAX_ROUNDS ? '次の人物との遭遇へ' : '任務完了'}
+            `;
+            
+            // UI更新
+            updateUI();
+            showMessage(messageText);
+            setButtons([
+                { text: gameState.currentRound < MAX_ROUNDS ? '次に進む' : '結果発表', action: nextStep }
+            ]);
+        }
+
+        // --- ゲーム終了と結果発表 ---
+
+        function endGame() {
+            gameState.gameActive = false;
+            MESSAGE_BOX.classList.add('game-over');
+            CHAR_INFO.classList.remove('police-dialogue-box', 'supreme-dialogue-box');
+            
+            let finalMessage = '';
+            if (gameState.score >= 30) {
+                finalMessage = '【伝説の配達人】: 貴方の功績は、未来の自由の光となりました。貴方は真の英雄です。';
+            } else if (gameState.score >= 15) {
+                finalMessage = '【敏腕の配達人】: 幾多の裏切りと罠を避け、多くの希望を届けました。';
+            } else if (gameState.score >= 0) {
+                finalMessage = '【平凡な配達人】: 危険な夜をなんとか生き延びました。次はもっと注意深く。';
+            } else {
+                finalMessage = '【危険分子】: 貢献ポイントはマイナス。貴方の活動は闇に葬られました。';
+            }
+
+            showMessage(`
+            --- 任務完了 ---
+            
+            全${MAX_ROUNDS}ラウンドの任務が終了しました。
+            
+            ${finalMessage}
+            
+            **最終貢献ポイント: ${gameState.score}**
+            `);
+             setButtons([
+                { text: 'もう一度、夜を駆ける', action: startGame, class: 'button-danger' }
+            ]);
+        }
+
+
+        // 通常のゲームオーバー（逮捕と処刑）
+        function gameOver(personName, reason) {
+            gameState.gameActive = false;
+            MESSAGE_BOX.classList.add('game-over');
+            CHAR_INFO.classList.remove('police-dialogue-box', 'supreme-dialogue-box');
+            
+            showMessage(`
+            --- 終焉（逮捕と処刑） ---
+            
+            相手は【${personName}】だった！
+            
+            ${reason}
+            
+            貴方の自由を求める活動は、政府の圧倒的な力の前についには潰え、闇に消えました。
+            
+            **最終貢献ポイント: ${gameState.score}**
+            `);
+             setButtons([
+                { text: 'もう一度、夜を駆ける', action: startGame, class: 'button-danger' }
+            ]);
+        }
+        
+        // 強制ゲームオーバー（東條英機）
+        function gameOverForce(personName, reason) {
+            gameState.gameActive = false;
+            MESSAGE_BOX.classList.add('game-over');
+            CHAR_INFO.classList.remove('police-dialogue-box', 'supreme-dialogue-box');
+            CHAR_INFO.classList.add('supreme-dialogue-box'); // 東條専用の豪華な枠を残す
+
+            showMessage(`
+            --- 終焉（最高権力者の裁き） ---
+            
+            【運命の強制執行】
+            
+            夜の暗闇を裂き、現れたのは、まさかの【${personName}】！
+            
+            ${reason}
+            
+            **「貴様のような国賊、生かしておけぬ！」**
+            
+            抵抗の余地なく、その場で処刑が執行されました。
+            
+            **最終貢献ポイント: ${gameState.score}**
+            `);
+             setButtons([
+                { text: 'もう一度、夜を駆ける', action: startGame, class: 'button-danger' }
+            ]);
+        }
+
+        // アプリ起動時にゲーム開始
+        window.onload = startGame;
+    </script>
+</body>
+</html>
